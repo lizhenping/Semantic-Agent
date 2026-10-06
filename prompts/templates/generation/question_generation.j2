@@ -1,0 +1,367 @@
+{# nl2sql_pipeline/src/nl2sql_pipeline/prompts/templates/generation/enhanced_question_generation.j2 #}
+
+## 任务
+基于数据库分析结果和业务场景，生成一个自然语言查询问题。
+
+## 当前配置
+
+### 场景信息
+- **主场景**: {{ main_scenario.name }} - {{ main_scenario.description }}
+- **子场景**: {{ sub_scenario.name }}
+- **关注点**: 
+{% for area in sub_scenario.focus_areas %}
+  - {{ area }}
+{% endfor %}
+
+### 复杂度要求
+- **级别**: {{ complexity }} (Level {{ complexity_config.level }})
+- **描述**: {{ complexity_config.description }}
+- **约束**: 最多{{ complexity_config.constraints.max_tables | default('不限') }}表，{{ complexity_config.constraints.max_joins | default('不限') }}个JOIN
+- **必须使用**: {{ complexity_config.sql_capabilities.required | join(', ') }}
+- **禁止使用**: {{ complexity_config.sql_capabilities.forbidden | join(', ') }}
+
+### 当前用例
+- **类型**: {{ use_case.name }}
+- **描述**: {{ use_case.description }}
+
+### SQLite 方言限制
+- 下游 SQL 必须在 SQLite 中执行。
+- 不要要求 `CUBE`、`ROLLUP`、`GROUPING()`、`DATE_TRUNC`、`DATE_FORMAT`、`QUARTER` 或其他 SQLite 不支持的方言特性。
+- 保持问题可由标准 SQLite SELECT、JOIN、CTE、窗口函数和 `UNION ALL` 表达。
+
+### 🔒 字面值接地硬规则（最高优先，违反任何一条即无效）
+- **逐字引用，禁止翻译**：枚举值/状态码/类别标签等字面值必须与”实测值域”中列出的原文**逐字符完全一致**（包括大小写、拼写、空格、连字符）。**严禁把库里的英文值翻译成中文写进问题**：值域是 `diagnosis` 就写 'diagnosis'，不得写 '诊断'；值域是 `Post Office` 就写 'Post Office'，不得写 '邮局'。也不得改写缩写、单复数或大小写（`NY` 不得写成 `New York`，除非值域中同时有这两个值）。
+- 问题中出现的**任何常量字面值**——枚举值/状态码、年份与日期、人名或机构名、编码（如专业码/选区码/机场码）、类别标签——**必须取自下列各列”实测值域”中明确列出的真实取值或其范围**。
+- **禁止臆造**数据中不存在的取值：不要编造示例值表里没有的枚举（如真实值是 `Yes/No` 时不得写 `Y`、真实值是 `Metro` 时不得写 `Metropolitan`）；日期/年份条件必须落在实测 `取值范围` 内（数据止于某年时不得问之后的年份）。
+- 高基数列无法穷举时，只能引用其样本中真实出现的字面值，不得虚构同格式的新值。
+- 若某个想要的业务前提在实测值域中无对应值，必须换一个有数据支撑的前提，不要保留无答案的问题。
+- **数据量前提（空表与阈值）**：表中标注「行数: 0」或「⚠ 空表」的表**不得出现在问题的任何前提中**；标注了行数的表，其阈值/数量条件必须与真实行数量级相容（例如某类记录只有几十行时，不得要求"超过 200 条"这种不可达条件）。数值列标有分位数时，阈值必须落在分位数覆盖的区间内。
+- **问题描述与字面值的分工**：业务概念、意图、维度可以用自然语言描述；但**作为过滤条件/取值出现的专有名词必须用值域原文**。正确示例：'诊断记录中 eventtype 为 diagnosis 的费用'（diagnosis 用原文）；错误示例：'诊断为诊断类型的费用'。
+
+## 数据库信息
+
+### 1. 表结构（共{{ tables|length }}个表）
+
+**🚨 严格Schema限制：只能使用以下确切的表-列组合！**
+
+⚠️ **重要规则**:
+- 每个列引用必须使用 `表名.列名` 完整格式
+- 只能使用下面明确列出的组合
+- 不能将一个表的列名用于另一个表
+
+{% for table in tables %}
+#### 表{{ loop.index }}: {{ table.name }}{% if table.row_count is defined and table.row_count is not none %}（行数: {{ table.row_count }}）{% endif %}
+**描述**: {{ table.description | default('无描述') }}{% if table.row_count is defined and table.row_count == 0 %}  ⚠ **空表：本表无数据，禁止围绕本表提问**{% endif %}
+
+**✅ 此表可用的列引用（严格按照这些使用）：**
+{% for col in table.columns %}
+- `{{ col.full_reference }}` ({{ col.type }}): {{ (col.description or col.comment or '无描述') | truncate(60) }}
+{% if col.sample_values %}  观测示例值（仅作实例与格式参考，不代表完整值域或业务规则）: {{ col.sample_values | map('string') | join(', ') }}{% endif %}
+{% if col.value_domain %}  📊 **实测值域（从真实数据库扫描，问题接地用）**: {{ col.value_domain }}{% endif %}
+{% endfor %}
+
+**❌ 禁止的错误用法（适用于所有未列出的组合）**：
+- 任何 `A.列B` 组合只要没有出现在上方"✅ 此表可用的列引用"清单中，一律不得使用——包括把其他表的列挂到本表名下、使用不存在的列名。
+
+{% endfor %}
+
+### 🎯 Schema验证清单
+
+**在生成列分析前，请检查：**
+□ 每个 `column_full_name` 都在上述列表中存在
+□ 格式严格按照 `表名.列名`
+□ 没有将A表的列用于B表
+□ 没有使用不存在的列名
+
+**正确示例**（基于当前Schema）：
+{% for table in tables[:3] %}
+{% if table.columns %}
+- ✅ `{{ table.columns[0].full_reference }}` 
+{% endif %}
+{% endfor %}
+
+**错误示例**（基于当前Schema）：
+{% for table in tables[:2] %}
+{% for other_table in tables[:1] %}
+{% if other_table.name != table.name and table.columns and other_table.columns %}
+- ❌ `{{ other_table.name }}.{{ table.columns[0].name }}` (列不在该表中)
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% if tables|length > 20 %}...还有{{ tables|length - 20 }}个表{% endif %}
+
+### 2. 实体关系
+{% if er_analysis %}
+#### 物理关系（外键）
+{% for rel in er_analysis.physical[:10] %}
+- {{ rel.from }} → {{ rel.to }}
+{% endfor %}
+
+#### 逻辑关系
+{% for rel in er_analysis.logical[:5] %}
+- {{ rel.tables | join(', ') }} ({{ rel.pattern }})
+{% endfor %}
+
+#### 概念关系
+{% for rel in er_analysis.conceptual[:5] %}
+- {{ rel.entity1 }} ↔ {{ rel.entity2 }}: {{ rel.relationship }}
+{% endfor %}
+{% endif %}
+
+### 3. {{ use_case.name }}的可用操作
+
+#### 表级操作
+{% for op in use_case.operations.table_level %}
+{% if op is mapping %}{% for k,v in op.items() %}- {{ k }}: {{ v|join(', ') }}
+{% endfor %}{% else %}- {{ op }}{% endif %}
+{% endfor %}
+
+#### 列级操作
+{% for op in use_case.operations.column_level %}
+{% if op is mapping %}{% for k,v in op.items() %}- {{ k }}: {{ v|join(', ') }}
+{% endfor %}{% else %}- {{ op }}{% endif %}
+{% endfor %}
+
+#### 列类型操作建议
+{% for col_type, suggestions in use_case.column_type_focus.items() %}
+**{{ col_type }}类型列**:
+{% for suggestion in suggestions[:2] %}
+- {{ suggestion }}
+{% endfor %}
+{% endfor %}
+
+### 4. {{ complexity }}级别操作示例
+{% if complexity_config.operations %}
+{% for category, details in complexity_config.operations.items() %}
+**{{ category }}**:
+{% if details is mapping %}
+{% for subcategory, examples in details.items() %}
+- {{ subcategory }}: {{ examples[0] if examples is sequence else examples }}
+{% endfor %}
+{% else %}
+{% for example in details[:2] if details is sequence %}
+- {{ example }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if complexity_config.level >= 3 %}
+## 业务规则说明
+在生成复杂或专家级别的问题时，如果问题涉及需要主观判断的业务概念（"最好的"、"高风险"、"大额"等），
+必须**只基于当前数据库实际存在的列**给出可SQL化的定义；数据库中没有对应字段支撑的概念不得使用。
+
+### 定义业务概念的通用方法（示例均为写法示范，具体阈值/字段必须来自当前库）
+- **排序评价类**（最好/最差/领先/落后）：指明基于哪个数值列、什么方向排序、取前几名。
+  示例写法：`按某数值列 DESC 排序取前 10`
+- **阈值判断类**（大额/高风险/重要）：指明具体列与数值阈值，阈值应参考该列的实测值域范围选取。
+  示例写法：`某金额列 > 实测值域上四分位`
+- **时间计算类**（延期/提前/过期）：指明两个日期列与比较口径（两列相减的天数）。
+  示例写法：`实际完成日期与计划完成日期相差 > 90 天`
+- **状态判断类**（活跃/异常/合格）：指明用哪个状态/类别列的哪些**实测枚举值**判断。
+
+### 硬性边界
+- 定义中出现的每个字段必须在"Schema验证清单"中存在；每个枚举字面值必须逐字取自实测值域。
+- 一个问题包含多个业务概念时，每个概念分别给出定义（见输出格式中的 business_rules）。
+- 不要引入数据库中不存在的外部领域概念（如当前库是论文库，就不要生成记录/记录类问题）。
+{% endif %}
+
+## 业务规则生成指导
+
+当问题中包含需要明确定义的业务概念时（如"最好的"、"延期的"、"高风险"等），请生成具体的业务规则说明。
+
+### 常见需要定义的概念类型：
+1. **排序评价类**（最好/最差/领先/落后）→ 说明基于哪个字段排序
+2. **阈值判断类**（大额/高风险/重要）→ 说明具体数值阈值
+3. **时间计算类**（延期/提前/过期）→ 说明如何计算时间差
+4. **状态判断类**（活跃/异常/合格）→ 说明判断条件
+
+### 生成示例：
+- 如果提到"执行最差"：需定义 → 基于记录表.延期天数 DESC 排序，取前10
+- 如果提到"高风险"：需定义 → 记录表.风险等级='高' OR (延期天数>60 AND 金额>5000万)
+- 如果提到"延期严重"：需定义 → 实际完成日期与计划完成日期相差 > 90 天
+
+### 要求：
+- 每个业务概念都要对应到具体的表和列
+- 给出可以直接转换为SQL的条件
+- 如果一个问题包含多个概念，分别定义每个概念
+
+### 多规则示例：
+问题："找出2024年高风险且执行最差的大额记录"
+应生成3个业务规则：
+1. "高风险" → 类型:阈值判断类 → 定义:风险等级='高' OR (延期>60 AND 金额>5000万)
+2. "执行最差" → 类型:排序评价类 → 定义:按延期天数降序排序取前10
+3. "大额" → 类型:阈值判断类 → 定义:金额>1亿
+
+## 输出要求
+
+基于"{{ sub_scenario.name }}"场景，分析并生成问题。注意：一个表可能有多种用途（如既是主表又参与子查询），一个列也可能有多个操作（如既是GROUP BY字段又是ORDER BY字段）。
+
+```json
+{
+  "table_analysis": {
+    "tables_used": [
+      {
+        "table_name": "表名",
+        "operations": [
+          {
+            "operation_type": "FROM/JOIN/SUBQUERY等",
+            "operation_detail": "具体操作描述，如：作为主表查询、LEFT JOIN到主表、在WHERE子句的IN子查询中",
+            "purpose": "该操作的目的"
+          }
+        ],
+        "selection_reason": "选择该表的整体原因"
+      }
+    ]
+  },
+  
+  "column_analysis": {
+    "columns_used": [
+      {
+        "column_full_name": "表名.列名",
+        "column_type": "数据类型",
+        "column_category": "numeric/date/text/categorical",
+        "operations": [
+          {
+            "operation_type": "SELECT/WHERE/GROUP BY/ORDER BY/AGG等",
+            "operation_detail": "具体操作，如：SUM聚合、等值条件过滤、分组字段、降序排序",
+            "purpose": "该操作的目的"
+          }
+        ],
+        "selection_reason": "选择该列的整体原因"
+      }
+    ]
+  },
+  
+  "generated_question": {
+    "question_text": "生成的中文业务问题",
+    "question_focus": "问题关注的核心业务点",
+    "expected_output": "期望查询返回什么样的结果集",
+    "value_proposition": "这个查询对{{ sub_scenario.name }}的业务价值"{% if complexity_config.level >= 3 %},
+    "business_rules": [
+      {
+        "concept": "识别到的业务概念（如'执行最差'）",
+        "type": "概念类型（排序评价类/阈值判断类/时间计算类/状态判断类）",
+        "definition": "具体定义说明",
+        "sql_mapping": {
+          "tables": ["涉及的表"],
+          "columns": ["涉及的列"],
+          "condition": "SQL条件或计算方式"
+        }
+      }
+    ]{% endif %}
+  }
+}
+```
+
+## 示例说明
+
+### 表的多重操作示例：
+- 一个表可以同时作为主表（FROM）和子查询表（SUBQUERY）
+- 一个表可以被多次JOIN（如自连接）
+- 一个表可以在不同的子查询中使用
+
+### 列的多重操作示例：
+- contracts.contract_id: 既是JOIN条件，又是GROUP BY字段
+- contracts.amount: 既在SELECT中显示，又用于SUM聚合，还用于ORDER BY排序
+- milestones.date: 既用于WHERE条件过滤，又用于日期计算
+
+## 注意事项
+
+1. **表操作类型**：
+   - FROM: 作为主表
+   - INNER/LEFT/RIGHT/FULL JOIN: 各种连接
+   - SUBQUERY: 在WHERE/HAVING/FROM子句中的子查询
+   - UNION: 集合操作
+
+2. **列操作类型**：
+   - SELECT: 结果集展示
+   - WHERE: 条件过滤
+   - GROUP BY: 分组
+   - ORDER BY: 排序
+   - 聚合函数: SUM/AVG/COUNT/MAX/MIN
+   - 窗口函数: ROW_NUMBER/RANK等（{{ complexity }}级别允许时）
+   - 计算: 算术运算、日期计算等
+
+3. **生成原则**：
+   - 问题要具体、可执行
+   - 符合{{ complexity }}复杂度要求
+   - 体现{{ use_case.name }}特征
+   - 贴合{{ sub_scenario.name }}场景需求
+   - 充分利用数据库的关系结构
+{% if complexity_config.level >= 3 %}
+   - **复杂/专家级特殊要求**：
+     - 涉及"最优/最差"等评判时，必须明确具体的评判指标
+     - 使用具体的数值阈值，而非模糊描述
+     - 多指标综合评判时，说明权重或优先级
+     - 时间对比分析需明确对比维度（同比/环比）
+{% endif %}
+
+## 🚨 最终检查要求
+
+**在生成分析结果前，请务必完成以下检查：**
+
+1. **列名验证**：确保每个 `column_full_name` 都是表结构中实际存在的列名
+2. **格式验证**：所有列引用必须使用 `表名.列名` 格式
+3. **避免臆造**：不得使用任何未在表结构中明确列出的列名
+4. **数据类型匹配**：确保列的操作与其数据类型相符（如：数值型列用于SUM，日期型列用于时间比较）
+
+**如果发现不存在的列名，请：**
+- 查找表结构中最相似的列名并使用
+- 或者修改问题以使用实际存在的列
+
+请基于以上信息，生成一个符合要求的查询问题，并详细说明表和列的使用方式。
+
+{% if complexity_config.level >= 3 %}
+### 复杂问题的输出示例：
+问题文本："查找2024年各地区延期严重且金额巨大的高风险记录分组类别排名"
+```json
+{
+  "generated_question": {
+    "question_text": "查找2024年各地区延期严重且金额巨大的高风险记录分组类别排名",
+    "business_rules": [
+      {
+        "concept": "延期严重",
+        "type": "时间计算类",
+        "definition": "实际完成日期与计划完成日期相差超过90天",
+        "sql_mapping": {
+          "tables": ["记录表"],
+          "columns": ["记录表.实际完成日期", "记录表.计划完成日期"],
+          "condition": "DATEDIFF(实际完成日期, 计划完成日期) > 90"
+        }
+      },
+      {
+        "concept": "金额巨大",
+        "type": "阈值判断类",
+        "definition": "金额超过1亿元",
+        "sql_mapping": {
+          "tables": ["记录表"],
+          "columns": ["记录表.金额"],
+          "condition": "金额 > 100000000"
+        }
+      },
+      {
+        "concept": "高风险",
+        "type": "阈值判断类",
+        "definition": "风险等级为高或满足高风险条件",
+        "sql_mapping": {
+          "tables": ["记录表"],
+          "columns": ["记录表.风险等级", "记录表.延期天数", "记录表.金额"],
+          "condition": "风险等级 = '高' OR (延期天数 > 60 AND 金额 > 50000000)"
+        }
+      },
+      {
+        "concept": "分组类别排名",
+        "type": "排序评价类",
+        "definition": "按符合条件的数量降序排列",
+        "sql_mapping": {
+          "tables": ["记录表", "分组类别表"],
+          "columns": ["分组类别表.单位名称", "COUNT(记录表.记录ID)"],
+          "condition": "GROUP BY 分组类别 ORDER BY COUNT(*) DESC"
+        }
+      }
+    ]
+  }
+}
+```
+{% endif %}

@@ -1,0 +1,589 @@
+# SQL复杂度定义 - 简洁实用版本
+complexity_levels:
+  simple:
+    name: "简单查询"
+    level: 1
+    description: "单表查询，基础条件过滤"
+    sql_capabilities:
+      required: ["SELECT", "FROM"]
+      allowed: ["WHERE", "ORDER BY", "LIMIT", "DISTINCT"]
+      forbidden: ["JOIN", "GROUP BY", "SUBQUERY", "UNION", "WINDOW_FUNCTION"]
+    constraints:
+      max_tables: 1
+      max_conditions: 3
+      max_columns: 10
+    operations:
+      WHERE:
+        - "等值条件: column = value"
+        - "范围条件: column BETWEEN x AND y"
+        - "IN列表: column IN (value1, value2)"
+        - "模糊匹配: column LIKE '%pattern%'"
+        - "空值判断: column IS NULL/IS NOT NULL"
+      ORDER_BY:
+        - "单字段排序: ORDER BY column [ASC|DESC]"
+        - "多字段排序: ORDER BY col1, col2"
+      基础函数:
+        - "日期函数: YEAR(), MONTH(), DATE()"
+        - "字符串函数: UPPER(), LOWER(), LENGTH()"
+        - "数学函数: ABS(), ROUND()"
+    
+  moderate:
+    name: "中等查询"
+    level: 2
+    description: "多表关联，分组聚合统计"
+    sql_capabilities:
+      required: ["SELECT", "FROM"]
+      allowed: ["JOIN", "WHERE", "GROUP BY", "HAVING", "ORDER BY", "LIMIT", "BASIC_AGG"]
+      forbidden: ["SUBQUERY", "WINDOW_FUNCTION", "CTE", "RECURSIVE"]
+    constraints:
+      max_tables: 3
+      max_conditions: 5
+      max_joins: 2
+      max_group_by_columns: 3
+      aggregation_functions: ["COUNT", "SUM", "AVG", "MAX", "MIN"]
+    operations:
+      JOIN:
+        - "内连接: INNER JOIN ON t1.id = t2.id"
+        - "左连接: LEFT JOIN保留左表所有记录"
+        - "多条件连接: ON t1.id = t2.id AND t1.type = t2.type"
+      GROUP_BY:
+        - "单字段分组: GROUP BY column"
+        - "多字段分组: GROUP BY col1, col2"
+        - "表达式分组: GROUP BY YEAR(date_col)"
+      聚合函数:
+        - "COUNT(*): 计数所有行"
+        - "COUNT(DISTINCT col): 去重计数"
+        - "SUM/AVG: 求和/平均值"
+        - "MAX/MIN: 最大/最小值"
+      HAVING:
+        - "聚合结果过滤: HAVING COUNT(*) > 10"
+        - "多条件: HAVING SUM(amount) > 1000 AND COUNT(*) > 5"
+      计算字段:
+        - "算术运算: price * quantity AS total"
+        - "百分比: (part/total) * 100 AS percentage"
+        - "日期差: DATEDIFF(end_date, start_date)"
+    
+  complex:
+    name: "复杂查询"
+    level: 3
+    description: "子查询，复杂逻辑，多表关联"
+    sql_capabilities:
+      required: ["SELECT", "FROM"]
+      allowed: ["JOIN", "SUBQUERY", "CASE_WHEN", "UNION", "EXISTS", "IN", "ALL_AGG", "GROUP BY", "HAVING"]
+      forbidden: ["WINDOW_FUNCTION", "CTE", "RECURSIVE"]
+    constraints:
+      max_tables: 5
+      max_joins: 4
+      max_subqueries: 3
+      subquery_depth: 2
+    operations:
+      子查询:
+        - "标量子查询: SELECT中嵌套"
+        - "IN子查询: WHERE col IN (SELECT...)"
+        - "EXISTS: WHERE EXISTS (SELECT...)"
+        - "相关子查询: 引用外部查询的列"
+        - "FROM子查询: FROM (SELECT...) AS t"
+      CASE_WHEN:
+        - "简单CASE: CASE col WHEN val1 THEN res1 END"
+        - "搜索CASE: CASE WHEN condition THEN result END"
+        - "嵌套CASE: CASE内部包含CASE"
+      集合操作:
+        - "UNION: 合并结果集(去重)"
+        - "UNION ALL: 合并结果集(保留重复)"
+      高级JOIN:
+        - "自连接: 表与自身连接"
+        - "多表连接: 3个以上表的复杂关联"
+      高级函数:
+        - "GROUP_CONCAT: 分组字符串连接"
+        - "IF/IFNULL: 条件判断"
+        - "COALESCE: 返回第一个非空值"
+        - "JSON函数: JSON_EXTRACT等"
+      
+  expert:
+    name: "专家查询"
+    level: 4
+    description: "窗口函数，CTE，递归查询"
+    sql_capabilities:
+      required: ["ADVANCED_FEATURES"]  # 至少使用一个高级特性
+      allowed: ["ALL"]  # 允许所有SQL特性
+    constraints:
+      max_tables: null  # 无限制
+      advanced_features: ["WINDOW_FUNCTION", "CTE", "RECURSIVE", "PIVOT"]
+    operations:
+      窗口函数:
+        概念说明: "窗口函数对一组相关行进行计算，但不像GROUP BY那样将多行合并为一行，而是为每一行返回一个值"
+        排名函数:
+          ROW_NUMBER:
+            - "功能: 为结果集中的每一行分配唯一的连续编号"
+            - "语法: ROW_NUMBER() OVER (ORDER BY 列名)"
+            - "示例: ROW_NUMBER() OVER (ORDER BY 金额 DESC) AS 金额排序"
+            - "应用: 给记录按金额从大到小编号，最大的是1，第二大的是2，以此类推"
+          RANK:
+            - "功能: 计算排名，相同值的行获得相同排名，下一个排名会跳过"
+            - "语法: RANK() OVER (ORDER BY 列名)"
+            - "示例: RANK() OVER (ORDER BY 完成率 DESC) AS 完成率排名"
+            - "应用: 如果有两个完成率都是95%并列第1，下一个记录排名就是第3"
+          DENSE_RANK:
+            - "功能: 密集排名，相同值的行获得相同排名，下一个排名不跳过"
+            - "语法: DENSE_RANK() OVER (ORDER BY 列名)"
+            - "示例: DENSE_RANK() OVER (PARTITION BY 类别 ORDER BY 金额 DESC)"
+            - "应用: 在每个类别内排名，并列第1的情况下，下一个是第2名而不是第3名"
+          PERCENT_RANK:
+            - "功能: 计算相对排名的百分比，结果在0到1之间"
+            - "语法: PERCENT_RANK() OVER (ORDER BY 列名)"
+            - "示例: PERCENT_RANK() OVER (ORDER BY 执行进度) AS 进度百分位"
+            - "应用: 返回0.8表示该记录的执行进度超过了80%的其他记录"
+        分析函数:
+          LAG:
+            - "功能: 访问当前行之前第N行的数据，常用于比较和趋势分析"
+            - "语法: LAG(列名, 偏移量, 默认值) OVER (ORDER BY 排序列)"
+            - "示例: LAG(金额, 1, 0) OVER (ORDER BY 签订日期) AS 上期金额"
+            - "应用: 计算环比增长率 = (本期金额 - 上期金额) / 上期金额 * 100"
+          LEAD:
+            - "功能: 访问当前行之后第N行的数据，用于预测和前瞻分析"
+            - "语法: LEAD(列名, 偏移量, 默认值) OVER (ORDER BY 排序列)"
+            - "示例: LEAD(交付日期, 1) OVER (ORDER BY 签订日期) AS 下个交付日期"
+            - "应用: 分析交付时间间隔，预测下一批次交付时间"
+          FIRST_VALUE:
+            - "功能: 获取窗口分区内的第一个值"
+            - "语法: FIRST_VALUE(列名) OVER (PARTITION BY 分组列 ORDER BY 排序列)"
+            - "示例: FIRST_VALUE(金额) OVER (PARTITION BY 分组类别 ORDER BY 签订日期) AS 首单金额"
+            - "应用: 比较当前记录与该分组类别第一份记录的金额差异"
+          LAST_VALUE:
+            - "功能: 获取窗口分区内的最后一个值（注意需要正确的窗口框架）"
+            - "语法: LAST_VALUE(列名) OVER (PARTITION BY 分组列 ORDER BY 排序列 ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)"
+            - "示例: LAST_VALUE(状态) OVER (PARTITION BY 编号 ORDER BY 更新时间) AS 最新状态"
+            - "应用: 追踪项目的最终执行状态"
+          NTH_VALUE:
+            - "功能: 获取窗口分区内的第N个值"
+            - "语法: NTH_VALUE(列名, N) OVER (PARTITION BY 分组列 ORDER BY 排序列)"
+            - "示例: NTH_VALUE(金额, 3) OVER (PARTITION BY 地区 ORDER BY 金额 DESC) AS 第三大金额"
+            - "应用: 找出每个地区金额第三大的记录作为参考基准"
+        聚合窗口:
+          移动平均:
+            - "功能: 计算指定窗口范围内的平均值，用于平滑数据趋势"
+            - "语法: AVG(列名) OVER (ORDER BY 排序列 ROWS BETWEEN N PRECEDING AND CURRENT ROW)"
+            - "示例: AVG(月度金额) OVER (ORDER BY 月份 ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS 三月移动平均"
+            - "应用: 计算最近3个月的金额移动平均，消除月度波动看趋势"
+          累计求和:
+            - "功能: 计算从开始到当前行的累计总和"
+            - "语法: SUM(列名) OVER (ORDER BY 排序列 ROWS UNBOUNDED PRECEDING)"
+            - "示例: SUM(金额) OVER (ORDER BY 签订日期) AS 累计金额"
+            - "应用: 显示金额的累计增长曲线，分析业务增长情况"
+          移动求和:
+            - "功能: 计算指定窗口范围内的总和"
+            - "语法: SUM(列名) OVER (ORDER BY 排序列 ROWS BETWEEN N PRECEDING AND M FOLLOWING)"
+            - "示例: SUM(交付数量) OVER (ORDER BY 交付日期 ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS 七日交付量"
+            - "应用: 统计最近7天的交付总量"
+        统计窗口:
+          CUME_DIST:
+            - "功能: 计算累积分布，返回小于等于当前值的行数占总行数的比例"
+            - "语法: CUME_DIST() OVER (ORDER BY 列名)"
+            - "示例: CUME_DIST() OVER (ORDER BY 完成率) AS 完成率分布"
+            - "应用: 返回0.75表示75%的完成率小于等于当前记录"
+          NTILE:
+            - "功能: 将数据集平均分成N个桶，返回每行所属的桶号"
+            - "语法: NTILE(N) OVER (ORDER BY 列名)"
+            - "示例: NTILE(4) OVER (ORDER BY 金额) AS 金额分组"
+            - "应用: 将记录按金额分成4个等级：1-小额、2-中等、3-较大、4-特大"
+        框架子句:
+          ROWS_BETWEEN:
+            - "说明: 基于物理行数定义窗口范围"
+            - "常用模式: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW (从开始到当前行)"
+            - "常用模式: ROWS BETWEEN N PRECEDING AND N FOLLOWING (当前行前后各N行)"
+            - "示例: SUM(金额) OVER (ORDER BY 日期 ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)"
+            - "应用: 计算当前日期前后各2天共5天的金额总和"
+          RANGE_BETWEEN:
+            - "说明: 基于值的范围定义窗口，而不是行数"
+            - "常用模式: RANGE BETWEEN INTERVAL '30' DAY PRECEDING AND CURRENT ROW"
+            - "示例: AVG(金额) OVER (ORDER BY 日期 RANGE BETWEEN INTERVAL '1' MONTH PRECEDING AND CURRENT ROW)"
+            - "应用: 计算当前日期往前一个月内的平均金额"
+      CTE:
+        概念说明: "CTE(公共表表达式)是一种临时命名的结果集，可以在主查询中像表一样使用。它让复杂查询更易读、更模块化"
+        简单CTE:
+          - "功能: 创建一个临时的查询结果，可以在后续查询中引用"
+          - "语法: WITH 临时表名 AS (查询语句) SELECT * FROM 临时表名"
+          - "示例: WITH 高额记录 AS (SELECT * FROM 记录表 WHERE 金额 > 1000000) SELECT 分组类别, COUNT(*) FROM 高额记录 GROUP BY 分组类别"
+          - "应用: 先筛选出金额超过100万的记录，然后统计每个分组类别的高额数量"
+          - "优势: 避免重复编写复杂的子查询，让SQL更清晰"
+        多个CTE:
+          - "功能: 定义多个临时结果集，后面的CTE可以引用前面定义的CTE"
+          - "语法: WITH cte1 AS (...), cte2 AS (可以引用cte1), cte3 AS (可以引用cte1和cte2) SELECT ..."
+          - "示例: |
+              WITH 
+              年度记录 AS (SELECT * FROM 记录表 WHERE YEAR(签订日期) = 2024),
+              单位统计 AS (SELECT 分组类别, COUNT(*) as 记录数, SUM(金额) as 总金额 FROM 年度记录 GROUP BY 分组类别),
+              重点单位 AS (SELECT * FROM 单位统计 WHERE 记录数 > 5 OR 总金额 > 5000000)
+              SELECT * FROM 重点单位 ORDER BY 总金额 DESC"
+          - "应用: 逐步筛选和汇总数据，从年度记录到单位统计，最后找出重点分组类别"
+          - "优势: 将复杂逻辑分解为多个简单步骤，每步都有明确含义"
+        递归CTE:
+          - "功能: 通过重复执行查询来处理层级或递归数据结构"
+          - "语法: WITH RECURSIVE 表名 AS (初始查询 UNION ALL 递归查询引用自身) SELECT ..."
+          - "示例: |
+              WITH RECURSIVE 项目层级 AS (
+                -- 初始查询：找出顶层项目
+                SELECT 项目ID, 项目名称, 上级项目ID, 1 as 层级, 
+                       CAST(项目名称 AS VARCHAR(1000)) as 完整路径
+                FROM 项目表 
+                WHERE 上级项目ID IS NULL
+                
+                UNION ALL
+                
+                -- 递归查询：找出子项目
+                SELECT p.项目ID, p.项目名称, p.上级项目ID, pl.层级 + 1,
+                       CONCAT(pl.完整路径, ' > ', p.项目名称) as 完整路径
+                FROM 项目表 p
+                INNER JOIN 项目层级 pl ON p.上级项目ID = pl.项目ID
+              )
+              SELECT * FROM 项目层级 ORDER BY 完整路径"
+          - "应用场景: 组织架构查询、项目层级关系、零件装配结构、审批流程追踪"
+          - "注意事项: 需要设置终止条件避免无限递归，通常通过JOIN条件或WHERE子句实现"
+      高级分析:
+        概念说明: "高级分析功能用于复杂的数据转换、深度统计分析和时间序列处理"
+        透视表(PIVOT):
+          - "功能: 将行数据转换为列，实现数据的重新组织和展示，类似Excel的数据透视表"
+          - "语法: 使用CASE WHEN或聚合函数配合GROUP BY实现"
+          - "基础示例: |
+              SELECT 分组类别,
+                SUM(CASE WHEN 状态 = '执行中' THEN 1 ELSE 0 END) AS 执行中数量,
+                SUM(CASE WHEN 状态 = '已完成' THEN 1 ELSE 0 END) AS 已完成数量,
+                SUM(CASE WHEN 状态 = '已延期' THEN 1 ELSE 0 END) AS 已延期数量
+              FROM 记录表
+              GROUP BY 分组类别"
+          - "金额透视示例: |
+              SELECT 年份,
+                SUM(CASE WHEN 类别 = '航空记录' THEN 金额 ELSE 0 END) AS 航空记录金额,
+                SUM(CASE WHEN 类别 = '地面记录' THEN 金额 ELSE 0 END) AS 地面记录金额,
+                SUM(CASE WHEN 类别 = '海上记录' THEN 金额 ELSE 0 END) AS 海上记录金额
+              FROM (SELECT YEAR(签订日期) as 年份, 类别, 金额 FROM 记录表) t
+              GROUP BY 年份"
+          - "应用场景: 状态分布矩阵、交叉统计报表、多维度对比分析"
+        时间序列分析:
+          - "功能: 分析数据随时间变化的趋势和模式"
+          - "同比计算: |
+              SELECT 
+                月份,
+                本期金额,
+                去年同期金额,
+                (本期金额 - 去年同期金额) / 去年同期金额 * 100 AS 同比增长率
+              FROM (
+                SELECT 
+                  DATE_FORMAT(签订日期, '%Y-%m') as 月份,
+                  SUM(金额) as 本期金额,
+                  LAG(SUM(金额), 12) OVER (ORDER BY DATE_FORMAT(签订日期, '%Y-%m')) as 去年同期金额
+                FROM 记录表
+                GROUP BY DATE_FORMAT(签订日期, '%Y-%m')
+              ) t"
+          - "环比计算: |
+              SELECT 
+                月份,
+                本期金额,
+                上期金额,
+                (本期金额 - 上期金额) / 上期金额 * 100 AS 环比增长率
+              FROM (
+                SELECT 
+                  DATE_FORMAT(签订日期, '%Y-%m') as 月份,
+                  SUM(金额) as 本期金额,
+                  LAG(SUM(金额), 1) OVER (ORDER BY DATE_FORMAT(签订日期, '%Y-%m')) as 上期金额
+                FROM 记录表
+                GROUP BY DATE_FORMAT(签订日期, '%Y-%m')
+              ) t"
+          - "应用: 业绩趋势分析、季节性模式识别、增长率计算"
+        路径分析:
+          概念说明: "路径分析用于追踪和分析数据之间的连接关系，找出从起点到终点的所有可能路径或最优路径"
+          基础路径构建:
+            - "功能: 使用递归CTE构建从起点到终点的完整路径"
+            - "语法: WITH RECURSIVE配合字符串连接函数"
+            - "示例: |
+                -- 项目依赖路径分析
+                WITH RECURSIVE 项目依赖路径 AS (
+                  -- 起始项目
+                  SELECT 
+                    项目ID,
+                    项目名称,
+                    依赖项目ID,
+                    CAST(项目名称 AS VARCHAR(1000)) as 依赖路径,
+                    1 as 路径深度,
+                    CAST(项目ID AS VARCHAR(1000)) as 路径ID序列
+                  FROM 项目依赖表
+                  WHERE 项目ID = '主项目001'  -- 指定起始项目
+                  
+                  UNION ALL
+                  
+                  -- 递归查找依赖
+                  SELECT 
+                    d.项目ID,
+                    d.项目名称,
+                    d.依赖项目ID,
+                    CONCAT(p.依赖路径, ' -> ', d.项目名称) as 依赖路径,
+                    p.路径深度 + 1,
+                    CONCAT(p.路径ID序列, ',', d.项目ID) as 路径ID序列
+                  FROM 项目依赖表 d
+                  INNER JOIN 项目依赖路径 p ON d.项目ID = p.依赖项目ID
+                  WHERE LOCATE(d.项目ID, p.路径ID序列) = 0  -- 避免循环
+                )
+                SELECT * FROM 项目依赖路径 ORDER BY 路径深度, 依赖路径"
+            - "应用: 识别项目的所有依赖关系，发现关键路径"
+          审批流程路径:
+            - "功能: 追踪文档或请求的完整审批流程"
+            - "示例: |
+                -- 记录审批流程追踪
+                WITH RECURSIVE 审批流程 AS (
+                  -- 起始节点
+                  SELECT 
+                    审批ID,
+                    记录ID,
+                    审批人,
+                    审批时间,
+                    审批意见,
+                    下一审批人,
+                    1 as 审批级别,
+                    CAST(审批人 AS VARCHAR(500)) as 审批链
+                  FROM 审批记录表
+                  WHERE 记录ID = 'HT2024001' AND 审批级别 = 1
+                  
+                  UNION ALL
+                  
+                  -- 递归追踪后续审批
+                  SELECT 
+                    a.审批ID,
+                    a.记录ID,
+                    a.审批人,
+                    a.审批时间,
+                    a.审批意见,
+                    a.下一审批人,
+                    p.审批级别 + 1,
+                    CONCAT(p.审批链, ' -> ', a.审批人) as 审批链
+                  FROM 审批记录表 a
+                  INNER JOIN 审批流程 p 
+                    ON a.记录ID = p.记录ID 
+                    AND a.审批人 = p.下一审批人
+                )
+                SELECT 
+                  记录ID,
+                  审批链 as 完整审批流程,
+                  审批级别 as 总审批级数,
+                  DATEDIFF(MAX(审批时间), MIN(审批时间)) as 总审批天数
+                FROM 审批流程
+                GROUP BY 记录ID, 审批链, 审批级别"
+            - "应用: 分析审批效率、识别审批瓶颈、合规性检查"
+          供应链路径:
+            - "功能: 追踪产品或零件在供应链中的流转路径"
+            - "示例: |
+                -- 记录零件供应链追踪
+                WITH RECURSIVE 供应链路径 AS (
+                  -- 最终产品
+                  SELECT 
+                    零件ID,
+                    零件名称,
+                    上级零件ID,
+                    供应商ID,
+                    1 as 层级,
+                    CAST(零件名称 AS VARCHAR(1000)) as 供应路径,
+                    CAST(供应商ID AS VARCHAR(500)) as 供应商链
+                  FROM 零件供应表
+                  WHERE 零件ID = '最终记录001'
+                  
+                  UNION ALL
+                  
+                  -- 递归查找子零件
+                  SELECT 
+                    s.零件ID,
+                    s.零件名称,
+                    s.上级零件ID,
+                    s.供应商ID,
+                    p.层级 + 1,
+                    CONCAT(p.供应路径, ' <- ', s.零件名称) as 供应路径,
+                    CONCAT(p.供应商链, ',', s.供应商ID) as 供应商链
+                  FROM 零件供应表 s
+                  INNER JOIN 供应链路径 p ON s.上级零件ID = p.零件ID
+                )
+                SELECT 
+                  供应路径,
+                  层级,
+                  COUNT(DISTINCT 供应商ID) as 涉及供应商数
+                FROM 供应链路径
+                GROUP BY 供应路径, 层级
+                ORDER BY 层级"
+            - "应用: 供应链风险评估、关键供应商识别、成本追溯"
+          最短路径分析:
+            - "功能: 在多个可能路径中找出最优路径（如最短、成本最低等）"
+            - "示例: |
+                -- 查找两个节点间的最短路径
+                WITH RECURSIVE 路径搜索 AS (
+                  -- 起始节点
+                  SELECT 
+                    起点ID as 当前节点,
+                    终点ID,
+                    距离,
+                    CAST(CONCAT(起点ID, '->', 终点ID) AS VARCHAR(1000)) as 路径,
+                    距离 as 总距离,
+                    1 as 跳数
+                  FROM 节点连接表
+                  WHERE 起点ID = 'A'  -- 指定起始点
+                  
+                  UNION ALL
+                  
+                  -- 递归搜索
+                  SELECT 
+                    c.终点ID as 当前节点,
+                    c.终点ID,
+                    c.距离,
+                    CONCAT(p.路径, '->', c.终点ID) as 路径,
+                    p.总距离 + c.距离 as 总距离,
+                    p.跳数 + 1
+                  FROM 节点连接表 c
+                  INNER JOIN 路径搜索 p ON c.起点ID = p.当前节点
+                  WHERE p.跳数 < 10  -- 限制搜索深度
+                    AND LOCATE(c.终点ID, p.路径) = 0  -- 避免重复访问
+                ),
+                最短路径 AS (
+                  SELECT 
+                    路径,
+                    总距离,
+                    跳数,
+                    ROW_NUMBER() OVER (PARTITION BY 当前节点 ORDER BY 总距离) as 排名
+                  FROM 路径搜索
+                  WHERE 当前节点 = 'Z'  -- 指定终点
+                )
+                SELECT * FROM 最短路径 WHERE 排名 = 1"
+            - "应用: 物流路径优化、成本最小化路径、时间最短路径"
+          循环检测:
+            - "功能: 检测数据中是否存在循环依赖"
+            - "示例: |
+                -- 检测项目依赖中的循环
+                WITH RECURSIVE 循环检测 AS (
+                  SELECT 
+                    项目ID,
+                    依赖项目ID,
+                    CAST(项目ID AS VARCHAR(1000)) as 访问路径,
+                    0 as 存在循环
+                  FROM 项目依赖表
+                  
+                  UNION ALL
+                  
+                  SELECT 
+                    d.项目ID,
+                    d.依赖项目ID,
+                    CONCAT(c.访问路径, ',', d.项目ID) as 访问路径,
+                    CASE 
+                      WHEN LOCATE(d.依赖项目ID, c.访问路径) > 0 THEN 1 
+                      ELSE 0 
+                    END as 存在循环
+                  FROM 项目依赖表 d
+                  INNER JOIN 循环检测 c ON d.项目ID = c.依赖项目ID
+                  WHERE c.存在循环 = 0  -- 只在未发现循环时继续
+                )
+                SELECT DISTINCT 访问路径 as 循环路径
+                FROM 循环检测
+                WHERE 存在循环 = 1"
+            - "应用: 数据完整性检查、依赖关系验证、风险识别"
+        统计函数:
+          标准差(STDDEV):
+            - "功能: 衡量数据的离散程度，值越大表示数据波动越大"
+            - "语法: STDDEV(列名) 或 STDDEV_POP(总体标准差) / STDDEV_SAMP(样本标准差)"
+            - "示例: SELECT 类别, AVG(金额) as 平均金额, STDDEV(金额) as 金额标准差 FROM 记录表 GROUP BY 类别"
+            - "应用: 识别金额波动大的类别，评估风险"
+          方差(VARIANCE):
+            - "功能: 标准差的平方，同样衡量数据离散程度"
+            - "语法: VARIANCE(列名) 或 VAR_POP(总体方差) / VAR_SAMP(样本方差)"
+            - "示例: SELECT 分组类别, VARIANCE(交付周期) as 交付周期方差 FROM 记录表 GROUP BY 分组类别"
+            - "应用: 评估分组类别的交付稳定性"
+          相关系数(CORR):
+            - "功能: 计算两个变量之间的线性相关程度，范围-1到1"
+            - "语法: CORR(列1, 列2)"
+            - "示例: SELECT CORR(金额, 执行周期) as 金额周期相关性 FROM 记录表"
+            - "应用: 分析金额与执行周期是否存在相关性"
+          中位数和分位数:
+            - "功能: 找出数据的中间值或特定百分位的值"
+            - "语法: PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY 列名) -- 0.5表示中位数"
+            - "示例: |
+                SELECT 
+                  类别,
+                  PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY 金额) as 第一四分位数,
+                  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY 金额) as 中位数,
+                  PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY 金额) as 第三四分位数
+                FROM 记录表
+                GROUP BY 类别"
+            - "应用: 了解金额的分布情况，识别异常值"
+
+# 复杂度分布配置
+distribution:
+  # 默认分布
+  default:
+    simple: 0.30    # 30%
+    moderate: 0.40  # 40%
+    complex: 0.20   # 20%
+    expert: 0.10    # 10%
+  
+  # 可按场景调整
+  by_scenario:
+    # 监控类场景：偏向简单查询
+    monitoring:
+      simple: 0.40
+      moderate: 0.40
+      complex: 0.15
+      expert: 0.05
+    
+    # 分析类场景：需要更多复杂查询
+    analysis:
+      simple: 0.20
+      moderate: 0.35
+      complex: 0.30
+      expert: 0.15
+    
+    # 报表类场景：平衡分布
+    reporting:
+      simple: 0.25
+      moderate: 0.40
+      complex: 0.25
+      expert: 0.10
+
+# 场景与复杂度的映射指导
+scenario_complexity_guide:
+  项目执行监控:
+    simple:
+      - "查询特定状态的项目"
+      - "按日期筛选记录"
+      - "显示项目基本信息"
+    moderate:
+      - "统计各部门项目数量"
+      - "计算项目完成率"
+      - "关联项目和负责人信息"
+    complex:
+      - "识别高风险项目"
+      - "多维度项目分析"
+      - "项目状态变化追踪"
+    expert:
+      - "项目执行效率排名"
+      - "同比环比分析"
+      - "项目依赖关系分析"
+      
+  项目地理分布:
+    simple:
+      - "查询某省份的项目"
+      - "列出特定城市的分组类别"
+    moderate:
+      - "统计各地区项目数量"
+      - "计算地区项目金额汇总"
+    complex:
+      - "跨区域项目协作分析"
+      - "地理聚集度分析"
+    expert:
+      - "区域资源优化配置"
+      - "地理分布趋势预测"
+      
+  财务支付监控:
+    simple:
+      - "查询待支付项目"
+      - "显示支付记录"
+    moderate:
+      - "计算支付进度"
+      - "统计各类支付金额"
+    complex:
+      - "资金流向分析"
+      - "超预算项目识别"
+    expert:
+      - "资金使用效率分析"
+      - "支付风险预警模型"

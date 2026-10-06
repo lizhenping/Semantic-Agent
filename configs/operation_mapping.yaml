@@ -1,0 +1,503 @@
+
+# 操作映射配置 - 将典型用例、SQL操作和业务场景关联
+
+# 典型用例到操作的映射
+use_case_operations:
+  # 数据查看类
+  data_viewing:
+    name: "数据查看与预览"
+    description: "基础数据浏览，快速了解数据内容"
+    operations:
+      table_level:
+        - SIMPLE_SELECT: ["SELECT", "FROM"]
+        - SIMPLE_FILTER: ["WHERE", "=", "!="]
+        - SORTING: ["ORDER BY", "ASC/DESC"]
+        - PAGINATION: ["LIMIT", "OFFSET"]
+      column_level:
+        - Comparison: ["=", "!=", "<>"]
+        - NULL: ["IS NULL", "IS NOT NULL"]
+    column_type_focus:
+      numeric: ["直接显示", "简单比较"]
+      date: ["日期显示", "格式化输出"]
+      text: ["文本显示", "精确匹配"]
+      categorical: ["状态显示", "分类筛选"]
+    typical_questions:
+      - "查看所有{table}的记录"
+      - "显示{column}为{value}的{table}"
+      - "按{column}排序显示{table}"
+      - "查看最新的N条记录"
+
+  # 条件筛选类
+  data_filtering:
+    name: "条件筛选与查找"
+    description: "多条件组合筛选，精确定位数据"
+    operations:
+      table_level:
+        - SIMPLE_FILTER: ["WHERE", "single condition"]
+        - COMPLEX_FILTER: ["WHERE", "AND/OR", "IN", "BETWEEN", "LIKE"]
+        - DISTINCT_QUERY: ["SELECT DISTINCT"]
+      column_level:
+        - Comparison: ["<", ">", "<=", ">=", "BETWEEN"]
+        - String: ["LIKE", "ILIKE", "NOT LIKE"]
+        - Set: ["IN", "NOT IN"]
+        - Pattern: ["REGEXP", "GLOB"]
+    column_type_focus:
+      numeric: 
+        - "范围筛选: BETWEEN min AND max"
+        - "阈值过滤: > threshold, < threshold"
+        - "精确匹配: = specific_value"
+      date:
+        - "日期范围: BETWEEN start_date AND end_date"
+        - "相对时间: >= DATE_SUB(NOW(), INTERVAL n DAY)"
+        - "特定时期: YEAR(date) = 2024"
+      text:
+        - "模糊匹配: LIKE '%keyword%'"
+        - "前缀匹配: LIKE 'prefix%'"
+        - "正则匹配: REGEXP pattern"
+      categorical:
+        - "多值筛选: IN (value1, value2, value3)"
+        - "排除筛选: NOT IN (values)"
+        - "状态组合: status = 'A' OR status = 'B'"
+    typical_questions:
+      - "查找{numeric_column}在{range}范围内的{table}"
+      - "筛选{date_column}为最近{N}天的{table}"
+      - "找出{text_column}包含{pattern}的记录"
+      - "查询{categorical_column}为指定状态的数据"
+
+  # 数据汇总类
+  data_aggregation:
+    name: "数据汇总与统计"
+    description: "分组统计分析，生成汇总报表"
+    operations:
+      table_level:
+        - AGGREGATION: ["GROUP BY", "COUNT", "SUM", "AVG", "MAX", "MIN"]
+        - HAVING: ["HAVING", "aggregate condition"]
+        - GROUPING_SETS: ["ROLLUP", "CUBE"]
+      column_level:
+        - Aggregate: ["SUM", "AVG", "COUNT", "MAX", "MIN", "GROUP_CONCAT"]
+        - Mathematical: ["ROUND", "ABS", "CEIL", "FLOOR"]
+        - Temporal: ["DATE_FORMAT", "EXTRACT", "DATE_TRUNC"]
+    column_type_focus:
+      numeric:
+        - "求和统计: SUM(amount)"
+        - "平均计算: AVG(value), ROUND(AVG(value), 2)"
+        - "极值分析: MAX(value), MIN(value)"
+        - "数量统计: COUNT(*), COUNT(DISTINCT value)"
+      date:
+        - "时间分组: GROUP BY DATE_FORMAT(date, '%Y-%m')"
+        - "周期统计: GROUP BY YEAR(date), MONTH(date)"
+        - "时间段聚合: GROUP BY DATE_TRUNC('month', date)"
+      text:
+        - "去重计数: COUNT(DISTINCT text_field)"
+        - "字符串聚合: GROUP_CONCAT(name SEPARATOR ', ')"
+      categorical:
+        - "分类计数: COUNT(*) GROUP BY category"
+        - "状态分布: GROUP BY status"
+        - "多维分组: GROUP BY category, sub_category"
+    typical_questions:
+      - "统计每个{categorical_column}的{numeric_column}总和"
+      - "计算按{date_column}分组的平均{numeric_column}"
+      - "汇总各{group}的数量分布"
+
+  # 关联分析类
+  relationship_analysis:
+    name: "关联分析与数据整合"
+    description: "多表关联查询，整合相关数据"
+    operations:
+      table_level:
+        - JOIN: ["INNER JOIN", "LEFT JOIN", "RIGHT JOIN", "FULL JOIN"]
+        - UNION_QUERY: ["UNION", "UNION ALL"]
+        - CROSS_JOIN: ["CROSS JOIN", "cartesian product"]
+      column_level:
+        - Comparison: ["= (join condition)", "!= (anti-join)"]
+        - String: ["CONCAT", "|| (concatenation)"]
+        - NULL: ["IS NULL (find missing)", "IS NOT NULL"]
+    column_type_focus:
+      numeric:
+        - "数值关联: t1.id = t2.foreign_id"
+        - "范围关联: t1.value BETWEEN t2.min AND t2.max"
+      date:
+        - "时间关联: t1.date = t2.date"
+        - "时间范围: t1.date BETWEEN t2.start AND t2.end"
+      text:
+        - "文本匹配: t1.code = t2.code"
+        - "模糊关联: t1.name LIKE CONCAT('%', t2.keyword, '%')"
+      categorical:
+        - "类别匹配: t1.type = t2.type"
+        - "状态关联: t1.status = t2.required_status"
+    typical_questions:
+      - "查询{table1}及其关联的{table2}信息"
+      - "找出{table1}中没有对应{table2}的记录"
+      - "合并多个来源的数据"
+
+  # 排名分析类
+  ranking_analysis:
+    name: "排名与TopN分析"
+    description: "排序排名分析，找出最优最差"
+    operations:
+      table_level:
+        - TOP_N: ["ORDER BY", "LIMIT N"]
+        - WINDOW_RANKING: ["ROW_NUMBER", "RANK", "DENSE_RANK", "NTILE"]
+        - PERCENTILE: ["PERCENT_RANK", "CUME_DIST"]
+      column_level:
+        - Window: ["ROW_NUMBER() OVER", "RANK() OVER", "DENSE_RANK() OVER"]
+        - Distribution: ["NTILE(n) OVER", "PERCENT_RANK() OVER"]
+    column_type_focus:
+      numeric:
+        - "数值排名: RANK() OVER (ORDER BY amount DESC)"
+        - "分组排名: RANK() OVER (PARTITION BY category ORDER BY value)"
+        - "百分位: PERCENT_RANK() OVER (ORDER BY score)"
+      date:
+        - "时间排序: ROW_NUMBER() OVER (ORDER BY date DESC)"
+        - "最新记录: RANK() OVER (PARTITION BY id ORDER BY update_time DESC)"
+      categorical:
+        - "分类内排名: ROW_NUMBER() OVER (PARTITION BY category ORDER BY metric)"
+        - "多维排名: RANK() OVER (PARTITION BY region, type ORDER BY value)"
+    typical_questions:
+      - "找出{numeric_column}最高的前{N}个{entity}"
+      - "计算每个{group}内的{metric}排名"
+      - "显示{metric}的Top 10和Bottom 10"
+      - "计算{entity}在整体中的百分位排名"
+    sql_patterns:
+      recommended:
+        - "ROW_NUMBER() OVER (ORDER BY column DESC)"
+        - "RANK() OVER (PARTITION BY group ORDER BY value DESC)"
+        - "DENSE_RANK() OVER (ORDER BY score DESC)"
+        - "NTILE(4) OVER (ORDER BY metric DESC)"
+      deprecated:
+        - "@row_num := @row_num + 1"  # 不推荐：SQLAlchemy执行有问题，现代SQL不推荐
+        - "SET @row_num = 0"  # 不推荐：需要多语句支持，兼容性差
+        - "SELECT (@row_number:=@row_number+1) AS num"  # 不推荐：变量初始化复杂
+
+  # 趋势分析类
+  trend_analysis:
+    name: "趋势与时间序列分析"
+    description: "时间维度分析，发现变化趋势"
+    operations:
+      table_level:
+        - TIME_SERIES: ["DATE functions", "GROUP BY time period"]
+        - WINDOW_FUNCTION: ["LAG", "LEAD", "moving aggregates"]
+        - INTERVAL: ["DATE_ADD", "DATE_SUB", "INTERVAL"]
+      column_level:
+        - Temporal: ["DATE_TRUNC", "DATE_DIFF", "EXTRACT", "DATE_FORMAT"]
+        - Window: ["LAG() OVER", "LEAD() OVER", "SUM() OVER (ROWS BETWEEN)"]
+        - Arithmetic: ["(current - previous) / previous * 100"]
+    column_type_focus:
+      numeric:
+        - "环比计算: value - LAG(value) OVER (ORDER BY date)"
+        - "同比计算: value - LAG(value, 12) OVER (ORDER BY month)"
+        - "移动平均: AVG(value) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)"
+        - "累计求和: SUM(value) OVER (ORDER BY date)"
+      date:
+        - "时间分组: GROUP BY DATE_TRUNC('month', date)"
+        - "时间间隔: DATE_DIFF(end_date, start_date)"
+        - "时间序列: GENERATE_SERIES(start_date, end_date, INTERVAL '1 day')"
+      categorical:
+        - "状态变化: LAG(status) OVER (PARTITION BY id ORDER BY date)"
+        - "趋势统计: COUNT(*) GROUP BY status, DATE_TRUNC('month', date)"
+    typical_questions:
+      - "分析{numeric_column}的月度变化趋势"
+      - "计算{metric}的同比/环比增长率"
+      - "显示{metric}的7日移动平均"
+      - "展示{metric}的累计变化曲线"
+
+  # 条件判断类
+  conditional_logic:
+    name: "条件判断与数据转换"
+    description: "复杂条件逻辑，数据分类转换"
+    operations:
+      table_level:
+        - CASE_WHEN: ["CASE", "WHEN", "THEN", "ELSE", "END"]
+        - IF_CONDITION: ["IF", "IFNULL", "NULLIF", "COALESCE"]
+        - PIVOT: ["行转列", "列转行", "交叉表"]
+      column_level:
+        - Conditional: ["CASE WHEN", "IF", "IFNULL", "COALESCE"]
+        - TypeConversion: ["CAST", "CONVERT", "::type"]
+        - NULL_HANDLING: ["COALESCE", "NULLIF", "IFNULL"]
+    column_type_focus:
+      numeric:
+        - "数值分段: CASE WHEN value < 100 THEN '低' WHEN value < 500 THEN '中' ELSE '高' END"
+        - "阈值判断: IF(amount > threshold, '超标', '正常')"
+        - "空值处理: COALESCE(value, 0)"
+      date:
+        - "时期分类: CASE WHEN date < '2024-01-01' THEN '历史' ELSE '当期' END"
+        - "工作日判断: CASE WHEN DAYOFWEEK(date) IN (1,7) THEN '周末' ELSE '工作日' END"
+      text:
+        - "文本映射: CASE status WHEN 'A' THEN '有效' WHEN 'I' THEN '无效' END"
+        - "模式匹配: CASE WHEN name LIKE '%公司' THEN '企业' ELSE '个人' END"
+      categorical:
+        - "多值映射: CASE category WHEN 'A' THEN '类型一' WHEN 'B' THEN '类型二' ELSE '其他' END"
+        - "组合判断: CASE WHEN status = 'A' AND type = 'X' THEN '特殊' ELSE '普通' END"
+    typical_questions:
+      - "根据{numeric_column}的值对{entity}进行等级分类"
+      - "将{categorical_column}的英文代码转换为中文描述"
+      - "基于多个条件对数据进行综合分类"
+
+  # 高级分析类
+  advanced_analysis:
+    name: "高级统计与复杂分析"
+    description: "复杂统计分析，深度数据挖掘，专家级SQL应用"
+    operations:
+      table_level:
+        - ADVANCED_SUBQUERY: 
+          - "Correlated subquery: WHERE col > (SELECT AVG(col) FROM t2 WHERE t2.id = t1.id)"
+          - "EXISTS/NOT EXISTS with complex conditions"
+          - "ALL/ANY/SOME operators"
+          - "Nested subqueries in FROM, SELECT, WHERE"
+        - CTE_ADVANCED:
+          - "Simple CTE: WITH cte AS (SELECT ...)"
+          - "Multiple CTEs: WITH cte1 AS (...), cte2 AS (...)"
+          - "Recursive CTE: WITH RECURSIVE"
+          - "CTE with window functions"
+        - WINDOW_FUNCTIONS:
+          - "Ranking: ROW_NUMBER, RANK, DENSE_RANK, NTILE"
+          - "Analytics: LAG, LEAD, FIRST_VALUE, LAST_VALUE"
+          - "Aggregates: SUM/AVG/COUNT OVER with frame clauses"
+        - ADVANCED_AGGREGATION:
+          - "GROUPING SETS, ROLLUP, CUBE"
+          - "FILTER clause: COUNT(*) FILTER (WHERE ...)"
+          - "Statistical: STDDEV, VARIANCE, PERCENTILE, MEDIAN"
+      column_level:
+        - Statistical: ["STDDEV", "VARIANCE", "CORR", "COVAR_POP", "REGR_*"]
+        - Advanced_Window: 
+          - "PERCENT_RANK() OVER"
+          - "CUME_DIST() OVER"
+          - "NTILE(n) OVER"
+          - "Frame specification: ROWS/RANGE BETWEEN"
+        - Complex_Expressions:
+          - "Nested CASE WHEN"
+          - "Complex calculations with multiple operations"
+          - "Conditional aggregations"
+    column_type_focus:
+      numeric:
+        - "统计分析: STDDEV(value), VARIANCE(value), CORR(x,y)"
+        - "分位数: PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY value)"
+        - "异常检测: 使用z-score或IQR方法"
+        - "回归分析: REGR_SLOPE, REGR_INTERCEPT"
+        - "移动统计: 移动平均、移动标准差"
+        - "累积分布: CUME_DIST() OVER (ORDER BY value)"
+      date:
+        - "时间序列分解: 趋势、季节性、残差分离"
+        - "周期分析: 使用LAG/LEAD进行同比环比"
+        - "时间窗口聚合: 滚动时间窗口统计"
+        - "事件序列分析: 使用窗口函数分析事件间隔"
+      text:
+        - "复杂模式匹配: 多重REGEXP条件"
+        - "文本聚合分析: GROUP_CONCAT with ORDER BY"
+        - "层级路径构建: 递归CTE构建路径字符串"
+      categorical:
+        - "交叉分析: CUBE/ROLLUP多维分析"
+        - "关联规则: 使用自连接发现频繁项集"
+        - "转换矩阵: 状态转换分析"
+        - "层级分析: 递归查询分析类别层级"
+    typical_questions:
+      - "使用窗口函数计算{metric}的移动平均和累计值，并识别异常点"
+      - "通过递归CTE分析{entity}的完整层级结构和路径"
+      - "使用GROUPING SETS生成{dimension}的多维汇总报表"
+      - "结合子查询和窗口函数找出每个{group}中表现最好和最差的{entity}"
+      - "使用相关子查询计算{metric}相对于其所属{category}平均值的偏差"
+      - "通过多个CTE逐步构建复杂的分析结果集"
+
+  # 专家级特有用例
+  recursive_analysis:
+    name: "递归与层级分析"
+    description: "使用递归CTE处理层级数据，路径分析"
+    operations:
+      table_level:
+        - RECURSIVE_CTE: ["WITH RECURSIVE", "hierarchical queries", "path building"]
+        - SELF_JOIN: ["Complex self-joins", "Tree traversal"]
+      column_level:
+        - Path_Building: ["String concatenation in recursion", "Level tracking"]
+        - Aggregation: ["Hierarchical aggregation", "Bottom-up summation"]
+    column_type_focus:
+      numeric:
+        - "层级汇总: 从叶子节点向上汇总数值"
+        - "路径成本: 计算从根到叶的累计成本"
+      categorical:
+        - "构建完整路径: 'A > B > C'"
+        - "层级关系图: parent-child relationships"
+    typical_questions:
+      - "构建{entity}的完整组织层级树"
+      - "计算从顶层到各{entity}的所有可能路径"
+      - "汇总每个{parent}下所有{children}的{metric}"
+
+  multi_dimensional_analysis:
+    name: "多维数据分析"
+    description: "使用CUBE, ROLLUP进行多维汇总"
+    operations:
+      table_level:
+        - GROUPING_SETS: ["GROUP BY GROUPING SETS", "Custom aggregation levels"]
+        - ROLLUP: ["GROUP BY ROLLUP", "Hierarchical totals"]
+        - CUBE: ["GROUP BY CUBE", "All dimension combinations"]
+      column_level:
+        - GROUPING: ["GROUPING() function", "NULL differentiation"]
+        - Multi_Aggregation: ["Multiple aggregate functions", "Conditional aggregates"]
+    column_type_focus:
+      all:
+        - "多维汇总: 同时按多个维度统计"
+        - "层次汇总: 包含小计和总计"
+        - "交叉分析: 所有维度组合"
+    typical_questions:
+      - "生成{dimension1}和{dimension2}的交叉汇总报表"
+      - "创建包含各级小计的{metric}汇总表"
+      - "分析所有可能的{dimensions}组合"
+
+
+
+
+# Scenario to use-case mapping (domain-agnostic)
+# Maps each scenario/sub_scenario/complexity to weighted use-case distributions
+scenario_use_case_mapping:
+  # 1. Data exploration
+  data_exploration:
+    record_lookup:
+      simple:
+        - data_viewing: 0.5
+        - data_filtering: 0.5
+      moderate:
+        - data_filtering: 0.6
+        - data_viewing: 0.4
+      complex:
+        - data_filtering: 0.5
+        - relationship_analysis: 0.3
+        - conditional_logic: 0.2
+      expert:
+        - conditional_logic: 0.4
+        - relationship_analysis: 0.3
+        - advanced_analysis: 0.3
+
+    sorting_and_pagination:
+      simple:
+        - data_viewing: 0.4
+        - ranking_analysis: 0.6
+      moderate:
+        - ranking_analysis: 0.5
+        - data_filtering: 0.5
+      complex:
+        - ranking_analysis: 0.4
+        - conditional_logic: 0.3
+        - data_aggregation: 0.3
+      expert:
+        - ranking_analysis: 0.3
+        - advanced_analysis: 0.4
+        - trend_analysis: 0.3
+
+    distinct_and_dedup:
+      simple:
+        - data_viewing: 0.5
+        - data_filtering: 0.5
+      moderate:
+        - data_aggregation: 0.5
+        - data_filtering: 0.5
+      complex:
+        - data_aggregation: 0.4
+        - conditional_logic: 0.3
+        - relationship_analysis: 0.3
+      expert:
+        - advanced_analysis: 0.4
+        - multi_dimensional_analysis: 0.3
+        - data_aggregation: 0.3
+
+  # 2. Aggregation and statistics
+  aggregation_statistics:
+    group_by_aggregation:
+      simple:
+        - data_viewing: 0.3
+        - data_aggregation: 0.7
+      moderate:
+        - data_aggregation: 0.7
+        - data_filtering: 0.3
+      complex:
+        - data_aggregation: 0.4
+        - ranking_analysis: 0.3
+        - conditional_logic: 0.3
+      expert:
+        - advanced_analysis: 0.4
+        - multi_dimensional_analysis: 0.3
+        - data_aggregation: 0.3
+
+    having_filtering:
+      simple:
+        - data_aggregation: 0.6
+        - data_filtering: 0.4
+      moderate:
+        - data_aggregation: 0.6
+        - conditional_logic: 0.4
+      complex:
+        - conditional_logic: 0.4
+        - data_aggregation: 0.3
+        - ranking_analysis: 0.3
+      expert:
+        - advanced_analysis: 0.5
+        - conditional_logic: 0.3
+        - multi_dimensional_analysis: 0.2
+
+    distribution_analysis:
+      simple:
+        - data_aggregation: 0.5
+        - data_viewing: 0.5
+      moderate:
+        - data_aggregation: 0.5
+        - ranking_analysis: 0.5
+      complex:
+        - data_aggregation: 0.3
+        - advanced_analysis: 0.4
+        - conditional_logic: 0.3
+      expert:
+        - advanced_analysis: 0.5
+        - multi_dimensional_analysis: 0.3
+        - trend_analysis: 0.2
+
+  # 3. Multi-table relationship queries
+  multi_table_query:
+    inner_join_lookup:
+      simple:
+        - data_viewing: 0.3
+        - relationship_analysis: 0.7
+      moderate:
+        - relationship_analysis: 0.5
+        - data_filtering: 0.3
+        - data_viewing: 0.2
+      complex:
+        - relationship_analysis: 0.4
+        - data_aggregation: 0.3
+        - conditional_logic: 0.3
+      expert:
+        - relationship_analysis: 0.3
+        - advanced_analysis: 0.4
+        - recursive_analysis: 0.3
+
+    multi_table_aggregation:
+      simple:
+        - relationship_analysis: 0.4
+        - data_aggregation: 0.6
+      moderate:
+        - data_aggregation: 0.4
+        - relationship_analysis: 0.4
+        - ranking_analysis: 0.2
+      complex:
+        - data_aggregation: 0.3
+        - relationship_analysis: 0.3
+        - ranking_analysis: 0.2
+        - conditional_logic: 0.2
+      expert:
+        - advanced_analysis: 0.4
+        - multi_dimensional_analysis: 0.3
+        - relationship_analysis: 0.3
+
+    set_operations:
+      simple:
+        - relationship_analysis: 0.5
+        - data_filtering: 0.5
+      moderate:
+        - relationship_analysis: 0.5
+        - data_aggregation: 0.3
+        - data_filtering: 0.2
+      complex:
+        - relationship_analysis: 0.4
+        - conditional_logic: 0.3
+        - advanced_analysis: 0.3
+      expert:
+        - advanced_analysis: 0.4
+        - recursive_analysis: 0.3
+        - relationship_analysis: 0.3

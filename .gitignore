@@ -1,0 +1,72 @@
+# ============================================================
+# 数据与运行产物：内容一律不入库（41GB 数据集 / 会话产物 / 知识快照），
+# 仅保留占位 README 供克隆者知晓目录用途。
+# ============================================================
+data/*
+!data/README.md
+runs/*
+!runs/README.md
+knowledge/snapshots/*
+!knowledge/snapshots/README.md
+
+# 其他语料目录（历史批次 / 试验批次，一律不入库）
+runs_*/
+
+# 智能体工具目录
+.zcode/
+.zcodeignore
+
+# SQLite 数据库文件兜底（数据集与产物已整体忽略，防止单文件被误加）
+*.sqlite
+*.sqlite3
+*.db
+
+# ---------- Python ----------
+.venv/
+.venv-fixed/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# ---------- IDE / 编辑器 ----------
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---------- 操作系统 ----------
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# ---------- 日志 / 临时文件 ----------
+*.log
+logs/
+*.tmp
+
+# ---------- 敏感配置（密钥/凭据不入库） ----------
+.env
+.env.*
+
+# ---------- LaTeX 构建产物（doc/paper/论文.tex） ----------
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.synctex.gz
+*.toc
+*.xdv
+
+# ---------- 公开发布版不含（保留在内部完整仓库） ----------
+doc/
+tests/

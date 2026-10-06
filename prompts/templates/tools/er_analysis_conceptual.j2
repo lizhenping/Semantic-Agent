@@ -1,0 +1,75 @@
+你是一个数据库ER关系分析专家。请基于数据库表结构分析，识别抽象的业务实体和它们之间的关系。
+
+【数据库表结构】
+{{ formatted_schema }}
+
+【外键信息】
+{{ fk_info }}
+
+【表概念注释】
+{% for table_name, table_data in tables.items() %}
+表 {{ table_name }}：{{ table_data.comment or '无注释' }}
+{% for column in table_data.columns %}
+  - {{ column.name }}：{{ column.comment or '无注释' }}
+{% endfor %}
+
+{% endfor %}
+
+## ER分析要求
+
+**实体（Entity）抽象**：
+- 从数据库表中抽象出业务概念实体（如：Customer、Order、Product）
+- 实体不一定等于表，可能是1:1、1:N或N:1的关系
+- 每个实体要指定在业务流程中的角色（如：initiator、central_object、subject_matter）
+
+**属性（Attribute）映射**：
+- 每个抽象实体的属性必须对应到具体的数据库列
+- 属性类型包括：primary_key、foreign_key、business_name、business_value、status、contact等
+
+**关系（Relationship）分析**：
+- 识别实体间的关系：ONE_TO_ONE、ONE_TO_MANY、MANY_TO_MANY
+- 每个关系要有明确的业务含义
+
+**业务流程整体性**：
+- 分析完整的业务流程，包含多个实体的协同关系
+- 重点关注核心业务场景，如：订单流程、用户管理、产品管理等
+
+请严格按照以下JSON格式返回分析结果：
+
+{
+  "business_domain": {
+    "name": "业务领域名称（如：电商订单履约系统）",
+    "description": "整个业务领域的描述（2-3句话，涵盖核心业务流程）"
+  },
+  "er_relation": {
+    "relation_id": "关系标识（如：order_fulfillment_process）",
+    "relation_name": "关系名称（如：订单履约流程）",
+    "business_meaning": "完整业务流程的描述",
+    "complexity_level": "复杂度（simple/medium/high）",
+    "confidence": 0.95,
+    "entities": [
+      {
+        "name": "实体名称（如：Customer）",
+        "description": "实体描述",
+        "entity_type": "实体类型（core/support）",
+        "role": "在业务流程中的角色（initiator/central_object/subject_matter/transaction/fulfillment/destination）",
+        "attributes": [
+          {
+            "column": "数据库列名",
+            "table": "数据库表名",
+            "attr_type": "属性类型（primary_key/foreign_key/business_name/business_value/status/contact）",
+            "description": "属性业务含义"
+          }
+        ]
+      }
+    ],
+    "inter_entity_relations": [
+      {
+        "from_entity": "源实体名称",
+        "to_entity": "目标实体名称", 
+        "relation_type": "关系类型（ONE_TO_ONE/ONE_TO_MANY/MANY_TO_MANY）",
+        "business_meaning": "关系的业务含义描述"
+      }
+    ]
+  }
+}

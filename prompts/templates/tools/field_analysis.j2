@@ -1,0 +1,47 @@
+You are a database field analysis expert. Analyze the semantic type of the following field.
+
+## Context
+Database: {{ database_name }}
+Table: {{ table_name }}
+{% if domain_type %}Domain type: {{ domain_type }}{% endif %}
+{% if domain_description %}Domain description: {{ domain_description }}{% endif %}
+
+## Field Information
+Field: {{ field_name }}
+Type: {{ data_type }}
+Sample values: {{ sample_values[:3] | join(', ') }}
+Entropy level: {{ entropy_level }}
+Primary key: {{ is_primary }}
+Foreign key: {{ is_foreign }}
+Nullable: {{ is_nullable }}
+{% if business_desc %}Existing description: {{ business_desc }}{% endif %}
+
+## Entropy Guide
+The entropy level is computed from COUNT(DISTINCT col) / row_count:
+- **high**: high cardinality ratio (>0.7), typically identifiers, names, amounts
+- **medium**: moderate diversity (0.1-0.7), typically categories, levels, codes
+- **low**: low diversity (<0.1), typically status, boolean, enum fields
+
+## Classification Task
+Determine the semantic category of this field:
+
+**category** must be one of:
+   - identifier: unique identifier (e.g., ID, code, primary key)
+   - measure: numeric value that can be aggregated (e.g., amount, count, score)
+   - dimension: categorical field for grouping (e.g., status, type, category)
+   - datetime: date or time field
+   - text: descriptive text (e.g., name, address, description)
+   - boolean: true/false flag
+   - other: cannot be classified into the above
+
+## Guidelines
+- Prioritize the semantic meaning of the field name
+- Consider the data type, sample values, and entropy level
+- High entropy usually indicates identifier or text; low entropy indicates dimension or boolean
+- Primary keys are usually identifiers; foreign keys may be identifiers or dimensions
+
+Return ONLY the following JSON (no other text):
+{
+  "category": "one of the 7 categories above",
+  "category_desc": "brief English description of the category"
+}

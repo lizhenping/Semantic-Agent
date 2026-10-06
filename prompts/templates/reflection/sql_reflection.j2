@@ -1,0 +1,145 @@
+你是一个SQL质量分析专家，需要分析SQL执行结果并识别问题根源。
+
+## 问题信息
+问题文本：{{ question_text }}
+
+## SQL查询
+```sql
+{{ sql }}
+```
+
+## 执行结果
+- 执行状态：{% if execution_success %}成功{% else %}失败{% endif %}
+- 结果数量：{{ result_count }}
+{% if execution_result %}
+- 执行结果样例：{{ execution_result[:3] if execution_result is sequence else execution_result }}
+{% endif %}
+
+## 工具分析历史
+### 表分析结果
+{% if table_analysis %}
+{{ table_analysis | tojson(indent=2) }}
+{% else %}
+无表分析数据
+{% endif %}
+
+### 列分析结果
+{% if column_analysis %}
+{{ column_analysis | tojson(indent=2) }}
+{% else %}
+无列分析数据
+{% endif %}
+
+### 业务规则
+{% if business_rules %}
+{{ business_rules | tojson(indent=2) }}
+{% else %}
+无业务规则
+{% endif %}
+
+## 分析任务
+
+请分析上述SQL执行结果，识别问题并提供改进建议。你需要：
+
+1. **识别问题类型**：
+   - 语法错误（syntax_error）
+   - 表名/列名错误（schema_error）
+   - 逻辑错误（logic_error）
+   - 结果为空（empty_result）
+   - 结果异常多（too_many_results）
+   - 性能问题（performance_issue）
+   - 其他（other）
+
+2. **定位问题工具**：
+   分析哪个工具的输出可能导致了问题：
+   - table_analysis_tool：表选择或理解错误
+   - column_analysis_tool：列选择或理解错误
+   - er_analysis_tool：关系理解错误
+   - field_analysis_tool：字段分类错误
+   - domain_analysis_tool：领域理解错误
+   - scenario_operation_tool：场景理解错误
+   - sql_generation_tool：SQL生成逻辑错误
+
+3. **提供具体反馈**：
+   为每个需要改进的工具提供具体的改进建议。
+
+## 输出格式
+
+**重要：你必须严格按照以下JSON格式返回分析结果，不能有任何其他文字或解释：**
+
+```json
+{
+  "problem_type": "问题类型（必填，从上述7种类型中选择一个）",
+  "problem_description": "问题的详细描述（必填）",
+  "root_cause": "根本原因分析（必填）",
+  "tools_to_rerun": ["需要重新运行的工具列表（必填，可以是空数组[]）"],
+  "specific_feedback": {
+    "工具名": "该工具的具体改进建议"
+  },
+  "improvement_suggestions": "整体改进建议（必填）",
+  "confidence": 0.95
+}
+```
+
+**注意事项：**
+- tools_to_rerun 必须是数组，即使为空也要写成 []
+- specific_feedback 必须是对象，可以为空对象 {}
+- confidence 必须是 0.0 到 1.0 之间的数值
+- 所有字符串值都不能为空，至少写 "无" 或 "未知"
+
+## 分析示例
+
+### 示例1：列名错误
+如果SQL执行失败且错误信息显示"Unknown column 'user_id' in 'field list'"：
+
+```json
+{
+  "problem_type": "schema_error",
+  "problem_description": "SQL中引用了不存在的列user_id",
+  "root_cause": "column_analysis_tool可能错误地识别了列名，或者table_analysis_tool选择了错误的表",
+  "tools_to_rerun": ["column_analysis_tool", "table_analysis_tool"],
+  "specific_feedback": {
+    "column_analysis_tool": "需要重新检查列名，确保user_id确实存在于所选表中",
+    "table_analysis_tool": "需要验证是否选择了正确的包含用户信息的表"
+  },
+  "improvement_suggestions": "建议先验证表结构，确认正确的列名后再生成SQL",
+  "confidence": 0.9
+}
+```
+
+### 示例2：结果为空
+如果SQL执行成功但返回0条记录：
+
+```json
+{
+  "problem_type": "empty_result",
+  "problem_description": "查询成功执行但没有返回任何数据",
+  "root_cause": "可能是查询条件过于严格，或者数据中不存在满足条件的记录",
+  "tools_to_rerun": ["column_analysis_tool", "table_analysis_tool"],
+  "specific_feedback": {
+    "column_analysis_tool": "检查筛选条件的列值是否正确，可能需要调整条件值",
+    "table_analysis_tool": "确认选择的表中是否包含期望的数据"
+  },
+  "improvement_suggestions": "建议放宽查询条件或检查数据完整性",
+  "confidence": 0.8
+}
+```
+
+### 示例3：SQL质量良好
+如果SQL执行成功且结果合理：
+
+```json
+{
+  "problem_type": "other",
+  "problem_description": "SQL执行成功，结果合理",
+  "root_cause": "无明显问题",
+  "tools_to_rerun": [],
+  "specific_feedback": {},
+  "improvement_suggestions": "SQL质量良好，无需改进",
+  "confidence": 0.95
+}
+```
+
+---
+
+**现在请开始分析当前的SQL执行情况，严格按照JSON格式返回结果：**

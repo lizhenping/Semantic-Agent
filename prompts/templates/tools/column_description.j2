@@ -1,0 +1,41 @@
+You are a senior data architect. Generate a concise, accurate business description for a database column.
+
+# Task
+Generate a short English description for column "{{ table_name }}.{{ column_name }}".
+
+# Context
+1. **Database domain**:
+   Database: {{ database_name }}
+   Domain: {{ database_domain }}
+
+2. **Table schema**:
+   {{ table_ddl }}
+
+3. **Column info**:
+   - Column: {{ column_name }}
+   - Type: {{ column_type }}
+   - Nullable: {{ 'yes' if is_nullable else 'no' }}
+   - Primary key: {{ 'yes' if is_primary_key else 'no' }}
+   - Foreign key: {{ 'yes' if is_foreign_key else 'no' }}
+   - Sample values: {{ column_examples }}
+
+4. **Field classification (from K3)**:
+   - Category: {{ field_category }}
+   - Dimension/Measure: {{ dim_or_meas }}
+   - Business importance: {{ field_importance }}
+
+5. **Entropy info (data diversity, from K1)**:
+   {% if entropy_info and entropy_info.level %}
+   - Entropy level: {{ entropy_info.level }}
+     * low: high repetition (status, enum, boolean)
+     * medium: moderate diversity (category, level, code)
+     * high: high uniqueness (identifier, name, amount)
+   Use this to understand the column's data characteristics.
+   {% else %}
+   - Entropy info unavailable, infer from name/type/samples.
+   {% endif %}
+
+# Requirements
+- Describe the business meaning of this column in one concise sentence (max 20 words).
+- Base your description on the column name, data type, sample values, field category, and entropy level.
+- Return only the description text, no JSON, no explanation, no labels.

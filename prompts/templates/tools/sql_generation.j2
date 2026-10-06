@@ -1,0 +1,162 @@
+## 任务
+基于问题分析和当前数据库结构信息，生成精确的 SQL 查询。
+保持源字段的单位和数值尺度，除非问题明确要求单位转换或百分比表示；不要仅为便于阅读而自行缩放数值。
+
+## 问题信息
+**问题**: {{ question }}
+{% if question_focus %}**关注点**: {{ question_focus }}{% endif %}
+{% if expected_output %}**期望输出**: {{ expected_output }}{% endif %}
+
+## 详细分析上下文
+{{ context }}
+
+{% if join_relationships and join_relationships|length > 0 %}
+## 可用的表连接关系（重要 - 只能使用这些关系）
+{% for rel in join_relationships %}
+- **{{ rel.from_table }} ⟷ {{ rel.to_table }}**: 使用 `{{ rel.from_table }}.{{ rel.column_name }} = {{ rel.to_table }}.{{ rel.column_name }}`
+{% endfor %}
+
+### JOIN规则
+- **严格限制**: 只能使用上述列出的连接关系
+- **禁止假设**: 不要假设任何未列出的列可以用于JOIN
+- **列必须存在**: 确保JOIN中使用的列在对应表中实际存在
+
+{% endif %}
+
+{% if business_rules and business_rules|length > 0 %}
+## 业务规则说明
+{% for rule in business_rules %}
+**{{ rule.get("concept", "") }}** ({{ rule.get("type", "") }}):
+- 定义: {{ rule.get("definition", "") }}
+{% set sm = rule.get("sql_mapping", {}) %}
+{% if sm %}
+- SQL映射: {{ sm.get("condition", "") }}
+- 涉及表: {{ sm.get("tables", []) | join(', ') }}
+- 涉及列: {{ sm.get("columns", []) | join(', ') }}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
+## 执行引擎：仅限 SQLite（唯一事实来源）
+
+本节是方言规则的**唯一来源**；下文任何示例都与本节保持一致，不存在第二套方言规则。
+当前执行引擎固定为 SQLite，以下特性**可用**：窗口函数（ROW_NUMBER/RANK/DENSE_RANK/聚合 OVER）、
+CTE（含 WITH RECURSIVE）、INTERSECT / EXCEPT / UNION、LEFT JOIN、CAST、
+strftime()/date() 等日期函数。
+
+### ❌ 禁止使用（SQLite 不支持，会直接执行报错）
+- **会话变量**: `@variable := value`、`@row_num` 等用户变量与 `SET` 语句
+- **其他方言日期函数**: `DATE_TRUNC`、`DATE_FORMAT`、`QUARTER()`、`YEAR()`、`MONTH()`、`DAY()`、`NOW()`
+- **其他方言聚合/字符串**: `ARRAY_AGG`、`STRING_AGG`、`GROUP_CONCAT(DISTINCT ... ORDER BY ...)`、`LISTAGG`
+- **其他方言其他**: `ROWNUM`、`CONNECT BY`、`DATEPART`、`STUFF`、`STRING_SPLIT`、`CONVERT`、`ISNULL`
+- **GROUP BY 扩展**: `WITH CUBE`、`WITH ROLLUP`、`GROUPING()` —— SQLite 一律不支持；
+  需要多维汇总/小计时，用明确的 `UNION ALL` 展开写
+- **ORDER BY 扩展**: `NULLS FIRST`、`NULLS LAST` —— 用 `CASE WHEN col IS NULL THEN ... END` 排序键替代
+- **隐式类型日期运算**: 不要对字符串日期直接做算术；用 `julianday()`/`strftime()` 计算
+
+### ✅ SQLite 等价写法（对照上面的禁止项）
+- 按年:      `strftime('%Y', date_column)`          （替代 YEAR()）
+- 按月:      `strftime('%Y-%m', date_column)`       （替代 DATE_FORMAT）
+- 按季度:    `(CAST(strftime('%m', date_column) AS INTEGER) + 2) / 3`   （替代 QUARTER()）
+- 排名:      `ROW_NUMBER() OVER (ORDER BY column DESC)`
+- 分组排名:  `RANK() OVER (PARTITION BY category ORDER BY value DESC)`
+- 累计:      `SUM(amount) OVER (ORDER BY date ROWS UNBOUNDED PRECEDING)`
+- NULL 排序: `ORDER BY CASE WHEN column_name IS NULL THEN 1 ELSE 0 END, column_name`
+- 差集/交集: `SELECT ... EXCEPT SELECT ...` / `INTERSECT`（SQLite 原生支持）
+
+{% if '排名' in question_lower or '前n' in question_lower or 'top' in question_lower or '第几' in question_lower or '最高' in question_lower or '最低' in question_lower or '第一' in question_lower or '第二' in question_lower %}
+## 🎯 排名分析建议
+- **窗口函数排名**: 使用 `ROW_NUMBER() OVER (ORDER BY column)` 进行排名，不要使用@变量
+- **示例**: `SELECT *, ROW_NUMBER() OVER (ORDER BY amount DESC) AS rank FROM table`
+{% endif %}
+
+{% if '每个' in question_lower or '各' in question_lower or '按' in question_lower or '分组' in question_lower or '各类' in question_lower or '各种' in question_lower %}
+## 🎯 分组排名建议
+- **分组排名**: 使用 `PARTITION BY` 进行分组排名
+- **示例**: `RANK() OVER (PARTITION BY category ORDER BY value DESC)`
+{% endif %}
+
+{% if '累计' in question_lower or '累积' in question_lower or '总和' in question_lower or '汇总' in question_lower %}
+## 🎯 累积计算建议
+- **累积计算**: 使用窗口函数进行累积计算
+- **示例**: `SUM(amount) OVER (ORDER BY date ROWS UNBOUNDED PRECEDING)`
+{% endif %}
+
+{% if '占比' in question_lower or '比例' in question_lower or '百分比' in question_lower or '份额' in question_lower %}
+## 🎯 比例计算建议
+- **比例计算**: 使用窗口函数计算占比
+- **示例**: `amount / SUM(amount) OVER (PARTITION BY category) * 100`
+{% endif %}
+
+{% if '移动' in question_lower or '滑动' in question_lower or '近n' in question_lower or '最近' in question_lower %}
+## 🎯 移动聚合建议
+- **移动聚合**: 使用 `ROWS BETWEEN` 子句
+- **示例**: `AVG(value) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)`
+{% endif %}
+
+## 配置要求
+- **SQL方言**: {{ dialect }}（即 SQLite，遵循上文"仅限 SQLite"一节）
+- **结果限制（严格服从问题口径）**:
+  - 仅当问题明确要求"前 N 条 / 最多 N 条 / 排名取前 N"时才写 `LIMIT N`，且 N 必须与问题中的数量完全一致
+  - 问题未指定数量限制时**禁止添加 LIMIT**，必须返回全部匹配结果（例如问"所有/全部/列出"时）
+- **性能考虑**: 优先使用索引字段（主键/外键）进行连接和过滤；选择性高的条件放在前面
+
+## SQL生成指导原则
+
+### 1. 表和列选择
+- **严格按照分析结果**: 只使用分析中明确指定的表和列
+- **遵循操作目的**: 每个表和列的使用都要符合分析中说明的操作目的
+- **维护数据完整性**: 确保JOIN条件正确，避免数据重复或丢失
+
+### 2. SQL结构设计
+- **FROM子句**: 以分析中指定的主表开始
+- **JOIN策略**: 根据分析中的连接目的选择适当的JOIN类型
+- **WHERE条件**: 严格按照业务规则中的条件逻辑
+- **GROUP BY**: 当分析中指定分组操作时使用
+- **ORDER BY**: 按照分析中的排序要求
+- **聚合函数**: 根据分析中的聚合操作需求
+
+### 3. SQLite 语法细则
+- **标识符引用**: 表名/列名用反引号包围 `` `field_name` ``（或双引号）
+- **字符串字面值**: 单引号 `'text'`；数值不加引号
+- **类型转换**: 使用 `CAST(expr AS INTEGER/REAL/TEXT)`
+- **日期函数**: 只用 `strftime()` / `date()` / `julianday()`（见上文对照表）
+- **布尔值**: 以数据库中的实际存储形式比较（'t'/'f'、0/1 或 'yes'/'no'，以分析上下文给出的实测值为准）
+
+## 输出要求
+请严格按照以下 JSON 格式返回结果（包含 SQL 查询和结构化推理理由）：
+
+```json
+{
+  "sql": "完整的 SQL 语句（以分号结尾）",
+  "rationale": {
+    "focus": "本查询的核心关注点（一句话）",
+    "table_selection": {
+      "tables_used": ["实际用到的表名"],
+      "reasoning": "为什么选择这些表（一句话）"
+    },
+    "column_selection": {
+      "columns_used": [
+        {
+          "name": "列名（不含表名前缀）",
+          "type": "数据类型",
+          "operation": "该列的 SQL 操作（SELECT / WHERE / GROUP BY / ORDER BY / AGG 等）",
+          "purpose": "为什么用这列（一句话）"
+        }
+      ]
+    },
+    "sql_strategy": {
+      "operations": ["SELECT", "ORDER BY DESC"],
+      "approach": "整体查询策略描述（一句话）",
+      "no_need": ["不需要的操作，如 JOIN / GROUP BY / MAX()"]
+    },
+    "expected_output": "期望返回什么样的结果（一句话）"
+  }
+}
+```
+
+注意：
+- `sql` 必须是语法正确、可直接执行的 SQL
+- `rationale` 必须如实反映 SQL 的设计思路，不能编造
+- 只返回上述 JSON，不要输出其他内容

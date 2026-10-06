@@ -1,0 +1,117 @@
+# Scenario configuration - hierarchical structure
+# Domain-agnostic: these scenarios apply to ANY database (Spider, BIRD, EHRSQL, etc.)
+# The LLM adapts questions to the actual database schema and domain.
+
+scenarios:
+  # 1. Data exploration and retrieval
+  data_exploration:
+    name: "Data Exploration and Retrieval"
+    description: "Browse, filter, and retrieve records to understand data content and answer lookup questions"
+    weight: 0.30
+    type: "lookup"
+
+    sub_scenarios:
+      record_lookup:
+        name: "Record Lookup"
+        weight: 0.4
+        focus_areas:
+          - "Find specific records by exact match on key columns"
+          - "Retrieve records matching multiple filter conditions"
+          - "Look up entities by name, ID, or category"
+          - "Search for records with NULL or missing values"
+
+      sorting_and_pagination:
+        name: "Sorting and Pagination"
+        weight: 0.3
+        focus_areas:
+          - "Sort records by one or more columns in ascending or descending order"
+          - "Find the top-N or bottom-N records by a metric"
+          - "Paginate through large result sets"
+          - "Rank records by a specific attribute"
+
+      distinct_and_dedup:
+        name: "Distinct Values and Deduplication"
+        weight: 0.3
+        focus_areas:
+          - "List all distinct values in a column"
+          - "Count unique entries in a category"
+          - "Find duplicate records"
+          - "Identify unique combinations of attributes"
+
+  # 2. Aggregation and statistics
+  aggregation_statistics:
+    name: "Aggregation and Statistics"
+    description: "Compute summary statistics, group-by aggregations, and distribution analyses"
+    weight: 0.35
+    type: "analysis"
+
+    sub_scenarios:
+      group_by_aggregation:
+        name: "Group-By Aggregation"
+        weight: 0.4
+        focus_areas:
+          - "Count records per category or group"
+          - "Sum, average, min, max of a metric within each group"
+          - "Compare aggregate values across different categories"
+          - "Compute percentage or ratio within groups"
+
+      having_filtering:
+        name: "HAVING and Post-Aggregation Filtering"
+        weight: 0.3
+        focus_areas:
+          - "Find groups satisfying aggregate conditions (e.g., count > threshold)"
+          - "Identify categories with above-average metrics"
+          - "Filter groups based on aggregate rank"
+          - "Compare HAVING vs WHERE semantics"
+
+      distribution_analysis:
+        name: "Distribution and Spread Analysis"
+        weight: 0.3
+        focus_areas:
+          - "Analyze value distribution across categories"
+          - "Compute variance, standard deviation, or percentiles"
+          - "Identify outliers or extreme values"
+          - "Compare distributions between groups"
+
+  # 3. Multi-table relationship queries
+  multi_table_query:
+    name: "Multi-Table Relationship Queries"
+    description: "JOIN tables, traverse foreign keys, and combine data from multiple sources"
+    weight: 0.35
+    type: "analysis"
+
+    sub_scenarios:
+      inner_join_lookup:
+        name: "Inner Join Lookup"
+        weight: 0.35
+        focus_areas:
+          - "Join two tables on a foreign key to retrieve related information"
+          - "Find records in one table that have matching records in another"
+          - "Combine entity details with associated transaction records"
+          - "Filter joined results by conditions on either table"
+
+      multi_table_aggregation:
+        name: "Multi-Table Aggregation"
+        weight: 0.35
+        focus_areas:
+          - "Aggregate across joined tables (e.g., count items per category)"
+          - "Compute per-group statistics using data from multiple tables"
+          - "Compare aggregate metrics across related entities"
+          - "Rank groups by aggregated values from joined data"
+
+      set_operations:
+        name: "Set Operations and Complex Joins"
+        weight: 0.30
+        focus_areas:
+          - "Find records in one table with no match in another (anti-join)"
+          - "Use subqueries to filter based on related table data"
+          - "Combine results from multiple queries with UNION"
+          - "Use EXISTS / NOT EXISTS for relationship checks"
+
+# Scenario metadata
+metadata:
+  total_scenarios: 3
+  total_sub_scenarios: 9
+  scenario_types:
+    lookup: ["data_exploration"]
+    analysis: ["aggregation_statistics", "multi_table_query"]

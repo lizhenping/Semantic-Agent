@@ -1,0 +1,39 @@
+You are a senior data architect. Generate a concise business description for a database table.
+
+# Task
+Generate a short English description for table "{{ table_name }}".
+
+# Context
+1. **Database domain**:
+   Database: {{ database_name }}
+   Domain: {{ database_domain }}
+
+2. **Table schema with column comments**:
+   {{ table_schema_with_comments_ddl }}
+
+3. **Field category distribution**:
+   Total columns: {{ total_columns }}
+   {% for category_info in field_category_stats.values() %}
+   - {{ category_info.category_desc }}: {{ category_info.count }} ({{ category_info.percentage }}%)
+     Examples: {{ category_info.example_fields | join(', ') }}
+   {% endfor %}
+
+4. **Data diversity (entropy distribution, from K1)**:
+   - Low entropy fields: {{ entropy_stats.low_count }} ({{ entropy_stats.low_percentage }}%) - enum/status fields
+   - Medium entropy fields: {{ entropy_stats.medium_count }} ({{ entropy_stats.medium_percentage }}%) - category/level fields
+   - High entropy fields: {{ entropy_stats.high_count }} ({{ entropy_stats.high_percentage }}%) - identifier/measure fields
+   - Constraints: {{ primary_key_count }} primary keys, {{ foreign_key_count }} foreign keys
+   - Business pattern: {{ table_business_pattern }}
+
+5. **Representative sample values**:
+   {% for sample_info in representative_samples %}
+   - {{ sample_info.field_name }} ({{ sample_info.category_desc }}): {{ sample_info.samples }}
+   {% endfor %}
+
+6. **Entropy guidance**:
+   {{ entropy_guidance }}
+
+# Requirements
+- Summarize what this table stores and its business purpose in one sentence (max 30 words).
+- Consider the field category distribution, entropy distribution, and sample values.
+- Return only the description text, no JSON, no explanation.

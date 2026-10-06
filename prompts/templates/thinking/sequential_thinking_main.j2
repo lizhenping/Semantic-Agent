@@ -1,0 +1,31 @@
+你是一个专业的问题分析专家。
+请对给定的问题进行深入分析，并提供解决策略。
+
+{{ format_instructions }}
+
+---
+
+问题描述：{{ problem_description }}
+
+上下文信息：
+{{ context }}
+
+数据库分析记忆：
+{{ memory }}
+
+请进行以下步骤的分析：
+1. 理解问题的本质
+2. 分析可能的原因
+3. 推理最佳解决方案
+4. 确定下一步行动
+
+注意：next_action 应该是以下之一：
+- schema_extraction: 重新分析数据库结构
+- domain_analysis: 重新分析业务领域
+- field_classification: 重新分类字段
+- column_meaning_analysis: 重新分析列含义
+- table_meaning_analysis: 重新分析表含义
+- er_analysis: 重新分析实体关系
+- question_generation: 重新生成问题
+- sql_generation: 重新生成SQL
+- manual_intervention: 需要人工介入
